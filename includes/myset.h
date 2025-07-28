@@ -22,4 +22,4 @@ int set_at(set *_in_set ,int index);
 int set_getSize(set *_in_set);
 
 // 清空Set
-void set_destroySet(set *_in_set);
+void set_destroy(set *_in_set);

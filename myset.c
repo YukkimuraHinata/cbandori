@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
-#define MAX_SIZE 15
-//想必bushiroad不会干出14 up的狠活吧
+#define MAX_SIZE 13
+//想必bushiroad不会干出12 up的狠活吧
 typedef struct MySet {
     int data[MAX_SIZE];
     int size;
@@ -30,7 +30,7 @@ bool set_containsElement(set *_in_set ,int element) {
 void set_addElement(set *_in_set ,int element) {
     if(element < MAX_SIZE) {
         _in_set->data[element] = element;
-        _in_set->size++;
+        //_in_set->size++;
     }
 }
 
@@ -38,7 +38,7 @@ void set_addElement(set *_in_set ,int element) {
 void set_removeElement(set *_in_set ,int element) {
     if(element < MAX_SIZE) {
         _in_set->data[element] = 0;
-        _in_set->size--;
+        //_in_set->size--;
     }
 }
 
@@ -49,11 +49,16 @@ int set_at(set *_in_set ,int element) {
 
 // 获取Set的大小
 int set_getSize(set *_in_set) {
-    return _in_set->size;
+    int size = 0;
+    for(int i = 0;i < MAX_SIZE;i++) {
+        if(_in_set->data[i] == i)
+            size++;
+    }
+    return size;
 }
 
 // 清空Set
-void set_destroySet(set *_in_set) {
+void set_destroy(set *_in_set) {
     if (_in_set) {
         free(_in_set);
     }

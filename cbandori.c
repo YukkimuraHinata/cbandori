@@ -25,11 +25,9 @@ double get_random() {
     return num_rand;
 }
 
-/* 获取5星卡的随机编号(1 ~ total_5star)
-   写成[1 , total_5star]范围是这样的：rand()%(total_5star+1) + 1
-   这也太复杂了 */
+// 获取5星卡的随机编号[1 , total_5star]
 int get_5star_random(int total_5star) {
-    int dis_5star =rand() % total_5star;
+    int dis_5star = rand() % total_5star + 1;
     return dis_5star;
 }
 
@@ -113,8 +111,8 @@ int simulate_one_round(int total_5star, int want_5star, int total_4star, int wan
             break; 
         }
     }
-    set_destroySet(cards_4star);
-    set_destroySet(cards_5star);
+    set_destroy(cards_4star);
+    set_destroy(cards_5star);
     return draws;
 }
 
@@ -147,8 +145,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     if(!draw_counts) {
         return 2;
     }
-    //int draw_counts[simulations]; //太伟大了VLA
-    //draw_counts.reserve(simulations);
+
     //std::mutex mtx;
     long long total_draws = 0;
     for(int it = 0; it < simulations; it++) {
@@ -200,12 +197,17 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     printf("中位数抽卡次数: %d ，即 %.2lf w星石 \n",percentile_50 ,(double)percentile_50 /40.0);
     printf("90玩家在以下抽数内集齐: %d ，即 %.2lf w星石 \n",percentile_90 ,(double)percentile_90 /40.0);
     printf("非酋至多抽卡次数: %d ，即 %.2lf w星石 \n",max_number ,(double)max_number /40.0);
+    if (!normal) {
     printf("理论最多抽卡次数：%d \n" ,(want_4star + want_5star) * 300 - 100);
+    }
     // 结束计时并计算耗时
     time_t end_time = time(&end_time);
     double time_diff = difftime(end_time,start_time);
 
     printf("模拟耗时: %.2lf 秒",time_diff);
+    /* for(int j = 0;j < simulations; j++) {
+        printf("%d ",draw_counts[j]);
+    } */
     free(draw_counts);
 
     if(reverseFlag) {
@@ -249,8 +251,6 @@ inline ArgProcessing arg_processing(int argc, const char* argv[]) {
     Result.threads = max_u32(1u,thread_count / 2u);
     for (int i = 1; i < argc; ++i) {
         const char *arg = argv[i];
-        //test arg copy
-        printf("argc %d : %s \n",i,arg);
         if (!strcmp(arg,"--reverse") || !strcmp(arg, "-r")) {
             Result.reverse_flag = true;
             printf(ANSI_Yellow_BG"当前处于反推抽数排名模式，结果仅供参考" ANSI_COLOR_RESET "\n");
@@ -267,12 +267,10 @@ inline ArgProcessing arg_processing(int argc, const char* argv[]) {
                     Result.threads = (unsigned int)user_threads;
                 }
             } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
-                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.1,Build 18 \n"
-                    "Copyright (c) 2025, 山泥若叶睦，Modified by UDMH \n"
-                    "Original page at: https://gitee.com/handsome-druid/bangdream-gacha \n"
-                    "My GitHub page at: https://github.com/YukkimuraHinata/bangdream-gacha \n"
-                    "C Version: %ld \n",__STDC_VERSION__);
-                    //到时候补回编译时间__DATE__和__TIME__
+                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.2,Build 18 \n"
+                    "GitHub page at: https://github.com/YukkimuraHinata/cbanduori \n"
+                    "C Version: %ld \n"
+                    "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);
                 Result.need_to_exit = true;
             } else if (!strcmp(arg, "--number") || !strcmp(arg, "-n")) {
                 i++;
@@ -312,11 +310,11 @@ int main(int argc, const char* argv[]) {
     printf(ANSI_Blue_BG"cbandori,a gacha simulator of Garupa" ANSI_COLOR_RESET "\n");
     printf("请输入当期5星卡的总数量: ");
     scanf("%d",&total_5star);
-    if (total_5star < 0) {
-        printf("卡片数量必须大于等于0！");
+    // Fes池6%概率最多12张卡，在这里确保输入合法，防止set数组越界
+    if (total_5star < 0 || total_5star > 12) {
+        printf("卡片数量必须大于等于0且不超过12！");
         return 1;
     }
-
     if (total_5star > 0) {
         printf("请输入想要抽取的当期5星卡数量: ");
         scanf("%d",&want_5star);
@@ -325,11 +323,11 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
     }
-
+    // 四星卡同理
     printf("请输入想要抽取的当期4星卡数量: ");
     scanf("%d",&want_4star);
-    if (want_4star < 0) {
-        printf("不能小于0！");
+    if (want_4star < 0 || want_4star > 12) {
+        printf("卡片数量必须大于0且不超过12！");
         return 1;
     }
     total_4star = want_4star;
