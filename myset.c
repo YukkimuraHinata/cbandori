@@ -29,16 +29,20 @@ bool set_containsElement(set *_in_set ,int element) {
 // 添加元素
 void set_addElement(set *_in_set ,int element) {
     if(element < MAX_SIZE) {
-        _in_set->data[element] = element;
-        //_in_set->size++;
+        if (!set_containsElement(_in_set,element)) {
+            _in_set->data[element] = element;
+            _in_set->size++;
+        }
     }
 }
 
 // 删除元素
 void set_removeElement(set *_in_set ,int element) {
     if(element < MAX_SIZE) {
-        _in_set->data[element] = 0;
-        //_in_set->size--;
+        if (!set_containsElement(_in_set,element)) {
+            _in_set->data[element] = 0;
+            _in_set->size--;
+        }
     }
 }
 
@@ -49,12 +53,7 @@ int set_at(set *_in_set ,int element) {
 
 // 获取Set的大小
 int set_getSize(set *_in_set) {
-    int size = 0;
-    for(int i = 0;i < MAX_SIZE;i++) {
-        if(_in_set->data[i] == i)
-            size++;
-    }
-    return size;
+    return _in_set->size;
 }
 
 // 清空Set

@@ -2,15 +2,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include <windows.h>
+#include <pthread.h>
 #include ".\includes\myset.h"
 #include ".\includes\myheader.h"
-#include <time.h>
-#include <windows.h>
-//#include <pthread.h>
-// MinGW好像没提供threads.h
 
-//#define true 1
-//#define false 0
 #define Simulations 1000000 //默认模拟次数
 #define minSimulations 10000 //最低模拟次数
 
@@ -37,7 +33,7 @@ int cmpfunc(const void *a, const void *b) {
     return (*(int*)a - *(int*)b);
 }
 
-typedef struct ArgProcessing {
+typedef struct {
     bool reverse_flag;
     bool unknow_arg;
     bool need_to_exit;
@@ -45,75 +41,111 @@ typedef struct ArgProcessing {
     unsigned int threads;
 } ArgProcessing;
 
+// 定义线程参数结构体
+typedef struct {
+    int total_5star;    // 总共的五星卡数量
+    int want_5star;     // 想要的五星卡数量
+    int total_4star;    // 总共的四星卡数量
+    int want_4star;     // 想要的4星卡数量
+    int is_normal;      // 是否是常驻
+    int start_index;    // 起始索引,还用于memmove()
+    int end_index;      // 结束索引
+    int* array;         // 输出数组
+    pthread_mutex_t* mutex; // 互斥锁指针
+} ThreadArgs;
+
 ArgProcessing arg_processing(int, const char**);
 unsigned int max_u32(unsigned int, unsigned int);
 
-int simulate_one_round(int total_5star, int want_5star, int total_4star, int want_4star, int normal) {
-    set *cards_5star = set_create();  // 已拥有的5星卡片集合
-    set *cards_4star = set_create();  // 已拥有的4星卡片集合
-    int draws = 0;  // 已经抽卡次数
-    int choose_times_have = 0; // 拥有的自选次数
-
-    while (true) {
-        draws++;
-        // 修改50保底逻辑
-        if (draws % 50 == 0 && normal == 1) {
-            if (want_5star > 0) {  // 只有当我们想要5星卡时才考虑
-                int roll = get_5star_random(want_5star);  // 随机抽取一张5星卡
-                if (roll <= want_5star) {  // 如果抽到的是想要的卡
-                    set_addElement(cards_5star,roll);
-                }
-            }
-            goto next_draw;  // 50保底必定是5星，跳过4星判定
-        }
-        else {
-            // 正常抽卡
-            double rand = get_random();
-            // 先判断5星
-            if (want_5star > 0) {  // 只有当我们想要5星卡时才判定
-                for (int i = 1; i <= want_5star; i++) {
-                    if (rand < 0.005 * i) {  // 0.005 = 0.5%，单张pickup的概率
-                        set_addElement(cards_5star,i);
-                        goto next_draw;
-                    }
-                }
-            }
-
-            // 如果想要的5星数量为0，则必定想要4星
-            //看似多此一举的一个else分支，可以为单线程100万次模拟减短大约一秒的计算时间（自豪）
-            else {
-                rand = get_random();
-                for (int i = 1; i <= want_4star; i++) {
-                    if(rand < 0.0075 * i) {  // 四星的概率是0.75%
-                        set_addElement(cards_4star,i);
-                        break;
-                    }
-                }
-                goto next_draw;  // 跳过重复的4星判定
-            }
-
-            // 再判断4星
-            if (total_4star > 0 && want_4star > 0) {
-                rand = get_random();
-                for (int i = 1; i <= want_4star; i++) {
-                    if(rand < 0.0075 * i) {
-                        set_addElement(cards_4star,i);
-                        break;
-                    }
-                }
-            }
-        }
-        next_draw:
-
-        //新的自选逻辑，先把抽卡抽完，再进行自选，避免重复抽到
-        choose_times_have = ( draws + 100 ) / 300;
-        if(set_getSize(cards_5star) + set_getSize(cards_4star) + choose_times_have >= want_5star + want_4star) {
-            break; 
-        }
+void* simulate_thread(void* arg) {
+    ThreadArgs* args = (ThreadArgs*)arg;
+    int sims_this_thread = args->end_index - args->start_index;
+    int *local_draws = calloc(sims_this_thread, sizeof(int));
+    if (!local_draws) {
+        return NULL;
     }
-    set_destroy(cards_4star);
-    set_destroy(cards_5star);
-    return draws;
+    int total_4star = args->total_4star;
+    int want_5star = args->want_5star;
+    int want_4star = args->want_4star;
+    int normal = args->is_normal;
+    int start = args->start_index;
+    int end = args->end_index;
+    int  draws;             // 已经抽卡次数
+    int choose_times_have;  // 拥有的自选次数
+    for (int i = 0; i < sims_this_thread; i++) {
+        set *cards_5star = set_create();  // 已拥有的5星卡片集合
+        set *cards_4star = set_create();  // 已拥有的4星卡片集合
+        draws = 0;  // 已经抽卡次数
+        choose_times_have = 0; // 拥有的自选次数
+
+        while (true) {
+            draws++;
+            // 修改50保底逻辑
+            if (draws % 50 == 0 && normal == 1) {
+                if (want_5star > 0) {  // 只有当我们想要5星卡时才考虑
+                    int roll = get_5star_random(want_5star);  // 随机抽取一张5星卡
+                    //printf("5 star保底 %d \n",roll);
+                    if (roll <= want_5star) {  // 如果抽到的是想要的卡
+                        set_addElement(cards_5star,roll);
+                    }
+                }
+                goto next_draw;  // 50保底必定是5星，跳过4星判定
+            }
+            else {
+                // 正常抽卡
+                double rand = get_random();
+                // 先判断5星
+                if (want_5star > 0) {  // 只有当我们想要5星卡时才判定
+                    for (int i = 1; i <= want_5star; i++) {
+                        if (rand < 0.005 * i) {  // 0.005 = 0.5%，单张pickup的概率
+                            set_addElement(cards_5star,i);
+                            goto next_draw;
+                        }
+                    }
+                }
+
+                // 如果想要的5星数量为0，则必定想要4星
+                //看似多此一举的一个else分支，可以为单线程100万次模拟减短大约一秒的计算时间
+                else {
+                    rand = get_random();
+                    for (int i = 1; i <= want_4star; i++) {
+                        if(rand < 0.0075 * i) {  // 四星的概率是0.75%
+                            set_addElement(cards_4star,i);
+                            break;
+                        }
+                    }
+                    goto next_draw;  // 跳过重复的4星判定
+                }
+
+                // 再判断4星
+                if (total_4star > 0 && want_4star > 0) {
+                    rand = get_random();
+                    for (int i = 1; i <= want_4star; i++) {
+                        if(rand < 0.0075 * i) {
+                            set_addElement(cards_4star,i);
+                            break;
+                        }
+                    }
+                }
+            }
+            next_draw:
+
+            //新的自选逻辑，先把抽卡抽完，再进行自选，避免重复抽到
+            choose_times_have = ( draws + 100 ) / 300;
+            if(set_getSize(cards_5star) + set_getSize(cards_4star) + choose_times_have >= want_5star + want_4star) {
+                break; 
+            }
+        }
+        local_draws[i] = draws;
+        set_destroy(cards_4star);
+        set_destroy(cards_5star);
+    }
+    // 使用互斥锁安全更新
+    pthread_mutex_lock(args->mutex);
+    memmove(&(args->array[start]),local_draws,sims_this_thread * sizeof(int)); // 累加到共享结果
+    free(local_draws);
+    pthread_mutex_unlock(args->mutex);
+    return NULL;
 }
 
 //计算累加和
@@ -141,48 +173,46 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     }
     printf("模拟次数: %d \n",simulations);
     printf("使用线程数: %u \n",thread_count);
+
+    // 初始化存放每次抽卡次数的数组
     int *draw_counts = calloc(simulations, sizeof(int));
     if(!draw_counts) {
         return 2;
     }
-
-    //std::mutex mtx;
-    long long total_draws = 0;
-    for(int it = 0; it < simulations; it++) {
-        draw_counts[it] = simulate_one_round(total_5star, want_5star, total_4star, want_4star, normal);
-    }
+    // 初始化互斥锁
+    pthread_mutex_t mutex;
+    pthread_mutex_init(&mutex, NULL);
+    long long total_draws = 0; //总抽数
     
     // 使用用户指定的线程数
-    //std::vector<std::thread> threads;
-    //int sims_per_thread = simulations / thread_count;
-        
+    pthread_t threads[thread_count];
+    ThreadArgs thread_args[thread_count];
+    // 每线程的模拟次数
+    int sims_per_thread = simulations / thread_count;
     // 创建多个线程执行模拟
-    /* 先不管多线程，能跑起来再说
-    for (unsigned int i = 0; i < thread_count; ++i) {
-        threads.emplace_back([&, i]() {
-            GachaRandom random(total_5star);  // 每个线程使用独立的随机数生成器
-            std::vector<int> local_draws;     // 线程本地存储
-            local_draws.reserve(sims_per_thread);
-            
-            int start = i * sims_per_thread;
-            int end = (i == thread_count - 1) ? simulations : (i + 1) * sims_per_thread;
-            
-            for (int j = start; j < end; ++j) {
-                int draws = simulate_one_round(total_5star, want_5star, total_4star, want_4star, normal, random);
-                local_draws.push_back(draws);
-            }
-            
-            // 合并结果
-            std::lock_guard<std::mutex> lock(mtx);
-            draw_counts.insert(draw_counts.end(), local_draws.begin(), local_draws.end());
-        });
+    for (unsigned int i = 0; i < thread_count; i++) {
+        thread_args[i].is_normal = normal;
+        thread_args[i].total_4star = total_4star;
+        thread_args[i].total_5star = total_5star;
+        thread_args[i].want_4star = want_4star;
+        thread_args[i].want_5star = want_5star;
+        thread_args[i].array = draw_counts;
+        thread_args[i].start_index = i * sims_per_thread;
+        thread_args[i].end_index = (i == thread_count- 1u) ? simulations : (i + 1u) * sims_per_thread;
+        thread_args[i].mutex = &mutex;
+
+        if (pthread_create(&threads[i], NULL, simulate_thread, &thread_args[i]) != 0) {
+            perror("Thread creation failed");
+            exit(EXIT_FAILURE);
+        }
     }
-    
     // 等待所有线程完成
-    for (auto& thread : threads) {
-        thread.join();
+    for (int i = 0; i < thread_count; i++) {
+        pthread_join(threads[i], NULL);
     }
-    */
+    // 销毁互斥锁
+    pthread_mutex_destroy(&mutex);
+
     // 计算总抽数
     total_draws = accumulate(0, simulations, draw_counts);
     
@@ -204,10 +234,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     time_t end_time = time(&end_time);
     double time_diff = difftime(end_time,start_time);
 
-    printf("模拟耗时: %.2lf 秒",time_diff);
-    /* for(int j = 0;j < simulations; j++) {
-        printf("%d ",draw_counts[j]);
-    } */
+    printf("模拟耗时: %.2lf 秒 \n",time_diff);
     free(draw_counts);
 
     if(reverseFlag) {
@@ -267,7 +294,7 @@ inline ArgProcessing arg_processing(int argc, const char* argv[]) {
                     Result.threads = (unsigned int)user_threads;
                 }
             } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
-                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.2,Build 18 \n"
+                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.3,Build 28 \n"
                     "GitHub page at: https://github.com/YukkimuraHinata/cbanduori \n"
                     "C Version: %ld \n"
                     "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);
