@@ -130,7 +130,7 @@ void* simulate_thread(void* arg) {
             }
             next_draw:
 
-            //新的自选逻辑，先把抽卡抽完，再进行自选，避免重复抽到
+            //先把抽卡抽完，再进行自选，避免重复抽到
             choose_times_have = ( draws + 100 ) / 300;
             if(set_getSize(cards_5star) + set_getSize(cards_4star) + choose_times_have >= want_5star + want_4star) {
                 break; 
@@ -142,7 +142,7 @@ void* simulate_thread(void* arg) {
     }
     // 使用互斥锁安全更新
     pthread_mutex_lock(args->mutex);
-    memmove(&(args->array[start]),local_draws,sims_this_thread * sizeof(int)); // 累加到共享结果
+    memmove(&(args->array[start]),local_draws,sims_this_thread * sizeof(int));
     free(local_draws);
     pthread_mutex_unlock(args->mutex);
     return NULL;
@@ -160,7 +160,9 @@ long long accumulate(int begin, int end, int arr[]) {
 // 修改统计函数签名，添加线程数参数
 int calculate_statistics(int total_5star, int want_5star, int total_4star, int want_4star, int normal, 
                         int simulations, unsigned int thread_count, bool reverseFlag) {
-    time_t start_time = time(&start_time);
+    LARGE_INTEGER freq, start_time, end_time;
+    QueryPerformanceFrequency(&freq);   // 获取计数器频率
+    QueryPerformanceCounter(&start_time);
     
     puts("----------------输入参数----------------");
     printf("当期5星数量: %d \n",total_5star);
@@ -173,7 +175,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     }
     printf("模拟次数: %d \n",simulations);
     printf("使用线程数: %u \n",thread_count);
-
+    long long total_draws = 0; //总抽数
     // 初始化存放每次抽卡次数的数组
     int *draw_counts = calloc(simulations, sizeof(int));
     if(!draw_counts) {
@@ -182,8 +184,6 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     // 初始化互斥锁
     pthread_mutex_t mutex;
     pthread_mutex_init(&mutex, NULL);
-    long long total_draws = 0; //总抽数
-    
     // 使用用户指定的线程数
     pthread_t threads[thread_count];
     ThreadArgs thread_args[thread_count];
@@ -231,10 +231,10 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     printf("理论最多抽卡次数：%d \n" ,(want_4star + want_5star) * 300 - 100);
     }
     // 结束计时并计算耗时
-    time_t end_time = time(&end_time);
-    double time_diff = difftime(end_time,start_time);
-
+    QueryPerformanceCounter(&end_time);
+    double time_diff = (double)(end_time.QuadPart - start_time.QuadPart) / freq.QuadPart;
     printf("模拟耗时: %.2lf 秒 \n",time_diff);
+
     free(draw_counts);
 
     if(reverseFlag) {
@@ -294,7 +294,7 @@ inline ArgProcessing arg_processing(int argc, const char* argv[]) {
                     Result.threads = (unsigned int)user_threads;
                 }
             } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
-                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.3,Build 28 \n"
+                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.4,Build 28 \n"
                     "GitHub page at: https://github.com/YukkimuraHinata/cbanduori \n"
                     "C Version: %ld \n"
                     "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);
