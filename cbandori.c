@@ -225,7 +225,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     printf("----------------模拟结果---------------- \n");
     printf("期望抽卡次数: " ANSI_Cyan "%lf \n"ANSI_COLOR_RESET ,expected_draws);
     printf("中位数抽卡次数: %d ，即 %.2lf w星石 \n",percentile_50 ,(double)percentile_50 /40.0);
-    printf("90玩家在以下抽数内集齐: %d ，即 %.2lf w星石 \n",percentile_90 ,(double)percentile_90 /40.0);
+    printf("90%%玩家在以下抽数内集齐: %d ，即 %.2lf w星石 \n",percentile_90 ,(double)percentile_90 /40.0);
     printf("非酋至多抽卡次数: %d ，即 %.2lf w星石 \n",max_number ,(double)max_number /40.0);
     if (!normal) {
     printf("理论最多抽卡次数：%d \n" ,(want_4star + want_5star) * 300 - 100);
@@ -233,7 +233,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     // 结束计时并计算耗时
     QueryPerformanceCounter(&end_time);
     double time_diff = (double)(end_time.QuadPart - start_time.QuadPart) / freq.QuadPart;
-    printf("模拟耗时: %.2lf 秒 \n",time_diff);
+    printf("模拟耗时: %.3lf 秒 \n",time_diff);
 
     free(draw_counts);
 
