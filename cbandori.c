@@ -10,11 +10,6 @@
 #define Simulations 1000000 //默认模拟次数
 #define minSimulations 10000 //最低模拟次数
 
-//初始化种子
-void rand_init() {
-    srand((unsigned)time(NULL));
-}
-
 // 获取0-1之间的随机数
 double get_random() {
     double num_rand = (double)rand()/RAND_MAX;
@@ -34,23 +29,23 @@ int cmpfunc(const void *a, const void *b) {
 }
 
 typedef struct {
-    bool reverse_flag;
-    bool unknow_arg;
-    bool need_to_exit;
-    int simulations;
-    unsigned int threads;
+    bool reverse_flag;      // -r 反推抽数
+    bool unknow_arg;        // 未知参数
+    bool need_to_exit;      // 表明程序需要退出（如遇到未知参数或遇到-v参数）
+    int simulations;        // -n 指定模拟次数
+    unsigned int threads;   // -t 指定线程
 } ArgProcessing;
 
 // 定义线程参数结构体
 typedef struct {
-    int total_5star;    // 总共的五星卡数量
-    int want_5star;     // 想要的五星卡数量
-    int total_4star;    // 总共的四星卡数量
-    int want_4star;     // 想要的4星卡数量
-    int is_normal;      // 是否是常驻
-    int start_index;    // 起始索引,还用于memmove()
-    int end_index;      // 结束索引
-    int* array;         // 输出数组
+    int total_5star;        // 总共的五星卡数量
+    int want_5star;         // 想要的五星卡数量
+    int total_4star;        // 总共的四星卡数量
+    int want_4star;         // 想要的4星卡数量
+    int is_normal;          // 是否是常驻
+    int start_index;        // 起始索引,还用于memmove()
+    int end_index;          // 结束索引
+    int* array;             // 输出数组
     pthread_mutex_t* mutex; // 互斥锁指针
 } ThreadArgs;
 
@@ -84,7 +79,6 @@ void* simulate_thread(void* arg) {
             if (draws % 50 == 0 && normal == 1) {
                 if (want_5star > 0) {  // 只有当我们想要5星卡时才考虑
                     int roll = get_5star_random(want_5star);  // 随机抽取一张5星卡
-                    //printf("5 star保底 %d \n",roll);
                     if (roll <= want_5star) {  // 如果抽到的是想要的卡
                         set_addElement(cards_5star,roll);
                     }
@@ -105,7 +99,7 @@ void* simulate_thread(void* arg) {
                 }
 
                 // 如果想要的5星数量为0，则必定想要4星
-                //看似多此一举的一个else分支，可以为单线程100万次模拟减短大约一秒的计算时间
+                // 看似多此一举的一个else分支，可以为单线程100万次模拟减短大约一秒的计算时间
                 else {
                     rand = get_random();
                     for (int i = 1; i <= want_4star; i++) {
@@ -130,7 +124,7 @@ void* simulate_thread(void* arg) {
             }
             next_draw:
 
-            //先把抽卡抽完，再进行自选，避免重复抽到
+            // 先把抽卡抽完，再进行自选，避免重复抽到
             choose_times_have = ( draws + 100 ) / 300;
             if(set_getSize(cards_5star) + set_getSize(cards_4star) + choose_times_have >= want_5star + want_4star) {
                 break; 
@@ -148,7 +142,7 @@ void* simulate_thread(void* arg) {
     return NULL;
 }
 
-//计算累加和
+// 计算累加和
 long long accumulate(int begin, int end, int arr[]) {
     long long acc_result = 0;
     for(int i = begin; i < end; i++) {
@@ -157,7 +151,7 @@ long long accumulate(int begin, int end, int arr[]) {
     return acc_result;
 }
 
-// 修改统计函数签名，添加线程数参数
+// 开启多线程，输出最终结果
 int calculate_statistics(int total_5star, int want_5star, int total_4star, int want_4star, int normal, 
                         int simulations, unsigned int thread_count, bool reverseFlag) {
     LARGE_INTEGER freq, start_time, end_time;
@@ -175,7 +169,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     }
     printf("模拟次数: %d \n",simulations);
     printf("使用线程数: %u \n",thread_count);
-    long long total_draws = 0; //总抽数
+
     // 初始化存放每次抽卡次数的数组
     int *draw_counts = calloc(simulations, sizeof(int));
     if(!draw_counts) {
@@ -214,6 +208,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     pthread_mutex_destroy(&mutex);
 
     // 计算总抽数
+    long long total_draws = 0;
     total_draws = accumulate(0, simulations, draw_counts);
     
     double expected_draws = (double)total_draws / simulations;
@@ -364,7 +359,9 @@ int main(int argc, const char* argv[]) {
         printf("输入错误！（1: 是，0: 否）");
         return 1;
     }
-    rand_init();
+    // 初始化种子
+    srand((unsigned)time(NULL));
+
     int return_value = calculate_statistics(total_5star, want_5star, total_4star, want_4star, isNormal, 
                         res.simulations, res.threads, res.reverse_flag);
     return return_value;
