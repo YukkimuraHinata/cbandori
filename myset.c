@@ -1,19 +1,21 @@
 #include <stdlib.h>
+#include <string.h>
 
-#define MAX_SIZE 13
-//想必bushiroad不会干出12 up的狠活吧
 typedef struct MySet {
-    int data[MAX_SIZE];
-    int size;
+    int capacity;   // 最大容量
+    int size;       // 已有元素数量
+    int data[];     // 怎么样，我的柔性数组（粉色奶龙音）
 } set;
 
-// 初始化Set
-set *set_create() {
-    set *myset = (set*)calloc(MAX_SIZE+1, sizeof(int));
+/* 初始化Set
+   之所以是_cap+3是为了留点余量避免出现逆天的差1问题 */
+set *set_create(int _cap) {
+    set *myset = (set*)calloc(_cap+3, sizeof(int));
     if (!myset) {
         return NULL;
     }
-    myset->data[0] = -1;
+    myset->data[0] = 39; // ariga39 :)
+    myset->capacity = _cap;
     return myset;
 }
 
@@ -28,21 +30,17 @@ bool set_containsElement(set *_in_set ,int element) {
 
 // 添加元素
 void set_addElement(set *_in_set ,int element) {
-    if(element < MAX_SIZE) {
-        if (!set_containsElement(_in_set,element)) {
-            _in_set->data[element] = element;
-            _in_set->size++;
-        }
+    if (!set_containsElement(_in_set,element)) {
+        _in_set->data[element] = element;
+        _in_set->size++;
     }
 }
 
 // 删除元素
 void set_removeElement(set *_in_set ,int element) {
-    if(element < MAX_SIZE) {
-        if (!set_containsElement(_in_set,element)) {
-            _in_set->data[element] = 0;
-            _in_set->size--;
-        }
+    if (!set_containsElement(_in_set,element)) {
+        _in_set->data[element] = 0;
+        _in_set->size--;
     }
 }
 
@@ -57,6 +55,13 @@ int set_getSize(set *_in_set) {
 }
 
 // 清空Set
+void set_clear(set *_in_set) {
+    memset(&(_in_set->size), 0, (_in_set->capacity + 2)*sizeof(int));
+    // 怎么会有人忘记了乘sizeof(int)导致改了3个小时没改明白
+    _in_set->data[0] = 39;
+}
+
+// 销毁Set
 void set_destroy(set *_in_set) {
     if (_in_set) {
         free(_in_set);

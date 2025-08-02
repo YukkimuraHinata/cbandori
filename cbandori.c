@@ -62,21 +62,18 @@ void* simulate_thread(void* arg) {
     int total_4star = args->total_4star;
     int want_5star = args->want_5star;
     int want_4star = args->want_4star;
-    int normal = args->is_normal;
-    int start = args->start_index;
-    int end = args->end_index;
     int  draws;             // 已经抽卡次数
     int choose_times_have;  // 拥有的自选次数
+    set *cards_5star = set_create(want_5star);  // 已拥有的5星卡片集合
+    set *cards_4star = set_create(want_4star);  // 已拥有的4星卡片集合
     for (int i = 0; i < sims_this_thread; i++) {
-        set *cards_5star = set_create();  // 已拥有的5星卡片集合
-        set *cards_4star = set_create();  // 已拥有的4星卡片集合
         draws = 0;  // 已经抽卡次数
         choose_times_have = 0; // 拥有的自选次数
 
         while (true) {
             draws++;
             // 修改50保底逻辑
-            if (draws % 50 == 0 && normal == 1) {
+            if (draws % 50 == 0 && args->is_normal == 1) {
                 if (want_5star > 0) {  // 只有当我们想要5星卡时才考虑
                     int roll = get_5star_random(want_5star);  // 随机抽取一张5星卡
                     if (roll <= want_5star) {  // 如果抽到的是想要的卡
@@ -131,12 +128,14 @@ void* simulate_thread(void* arg) {
             }
         }
         local_draws[i] = draws;
-        set_destroy(cards_4star);
-        set_destroy(cards_5star);
+        set_clear(cards_4star);
+        set_clear(cards_5star);
     }
+    set_destroy(cards_4star);
+    set_destroy(cards_5star);
     // 使用互斥锁安全更新
     pthread_mutex_lock(args->mutex);
-    memmove(&(args->array[start]),local_draws,sims_this_thread * sizeof(int));
+    memmove(&(args->array[args->start_index]),local_draws,sims_this_thread * sizeof(int));
     free(local_draws);
     pthread_mutex_unlock(args->mutex);
     return NULL;

@@ -4,7 +4,7 @@
 typedef struct MySet set;
 
 // 初始化Set
-set* set_create();
+set* set_create(int _cap);
 
 // 检查元素是否存在
 bool set_containsElement(set *_in_set ,int element);
@@ -22,4 +22,7 @@ int set_at(set *_in_set ,int index);
 int set_getSize(set *_in_set);
 
 // 清空Set
+void set_clear(set *_in_set);
+
+// 销毁Set
 void set_destroy(set *_in_set);
