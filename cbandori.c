@@ -43,7 +43,7 @@ typedef struct {
     int total_4star;        // 总共的四星卡数量
     int want_4star;         // 想要的4星卡数量
     int is_normal;          // 是否是常驻
-    int start_index;        // 起始索引,还用于memmove()
+    int start_index;        // 起始索引,还用于memcopy()
     int end_index;          // 结束索引
     int* array;             // 输出数组
     pthread_mutex_t* mutex; // 互斥锁指针
@@ -55,7 +55,7 @@ unsigned int max_u32(unsigned int, unsigned int);
 void* simulate_thread(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
     int sims_this_thread = args->end_index - args->start_index;
-    int *local_draws = calloc(sims_this_thread, sizeof(int));
+    int *local_draws = malloc(sims_this_thread * sizeof(int));
     if (!local_draws) {
         return NULL;
     }
@@ -135,7 +135,7 @@ void* simulate_thread(void* arg) {
     set_destroy(cards_5star);
     // 使用互斥锁安全更新
     pthread_mutex_lock(args->mutex);
-    memmove(&(args->array[args->start_index]),local_draws,sims_this_thread * sizeof(int));
+    memcpy(&(args->array[args->start_index]),local_draws,sims_this_thread * sizeof(int));
     free(local_draws);
     pthread_mutex_unlock(args->mutex);
     return NULL;
@@ -170,7 +170,7 @@ int calculate_statistics(int total_5star, int want_5star, int total_4star, int w
     printf("使用线程数: %u \n",thread_count);
 
     // 初始化存放每次抽卡次数的数组
-    int *draw_counts = calloc(simulations, sizeof(int));
+    int *draw_counts = malloc(simulations * sizeof(int));
     if(!draw_counts) {
         return 2;
     }
@@ -288,7 +288,7 @@ inline ArgProcessing arg_processing(int argc, const char* argv[]) {
                     Result.threads = (unsigned int)user_threads;
                 }
             } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
-                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.4,Build 28 \n"
+                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.5 \n"
                     "GitHub page at: https://github.com/YukkimuraHinata/cbanduori \n"
                     "C Version: %ld \n"
                     "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);

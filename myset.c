@@ -8,13 +8,13 @@ typedef struct MySet {
 } set;
 
 /* 初始化Set
-   之所以是_cap+3是为了留点余量避免出现逆天的差1问题 */
+   由于生成的随机数是从1开始的，故data[0]无用，同时需要初始化两个int
+   所以应申请_cap+3的内存，+4就当留点缓冲 */
 set *set_create(int _cap) {
-    set *myset = (set*)calloc(_cap+3, sizeof(int));
+    set *myset = (set*)calloc(_cap+4, sizeof(int));
     if (!myset) {
         return NULL;
     }
-    myset->data[0] = 39; // ariga39 :)
     myset->capacity = _cap;
     return myset;
 }
@@ -58,7 +58,6 @@ int set_getSize(set *_in_set) {
 void set_clear(set *_in_set) {
     memset(&(_in_set->size), 0, (_in_set->capacity + 2)*sizeof(int));
     // 怎么会有人忘记了乘sizeof(int)导致改了3个小时没改明白
-    _in_set->data[0] = 39;
 }
 
 // 销毁Set
