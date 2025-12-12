@@ -51,6 +51,10 @@ typedef struct Thread_args{
 ArgProcessing arg_processing(int, const char**);
 unsigned int max_u32(unsigned int, unsigned int);
 
+inline unsigned int max_u32(unsigned int a, unsigned int b) {
+    return a > b ? a : b;
+}
+
 void* simulate_thread(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
     int sims_this_thread = args->end_index - args->start_index;
@@ -152,7 +156,8 @@ long long accumulate(int begin, int end, int arr[]) {
 int calculate_statistics(int total_5star, int want_5star, int want_4star, int normal, 
                         int simulations, unsigned int thread_count, bool reverseFlag) {
     LARGE_INTEGER freq, start_time, end_time;
-    QueryPerformanceFrequency(&freq);   // 获取计数器频率
+    // 获取计数器频率并开始计时
+    QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start_time);
     
     puts("----------------输入参数----------------");
@@ -202,17 +207,18 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     }
     // 销毁互斥锁
     pthread_mutex_destroy(&mutex);
-
+    // 对数据进行排序，以进行后续结果的计算
+    qsort(draw_counts, simulations, sizeof(int), cmpfunc);
     // 计算总抽数
     long long total_draws = 0;
     total_draws = accumulate(0, simulations, draw_counts);
     
     double expected_draws = (double)total_draws / simulations;
-    qsort(draw_counts, simulations, sizeof(int), cmpfunc);
     int percentile_50 = draw_counts[simulations / 2];
     int percentile_90 = draw_counts[(int)(simulations * 0.9)];
     int max_number = draw_counts[simulations - 1];
-    
+    free(draw_counts);
+
     printf("----------------模拟结果---------------- \n");
     printf("期望抽卡次数: " ANSI_Cyan "%lf \n"ANSI_COLOR_RESET ,expected_draws);
     printf("中位数抽卡次数: %d ，即 %.2lf w星石 \n",percentile_50 ,(double)percentile_50 /40.0);
@@ -225,8 +231,6 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     QueryPerformanceCounter(&end_time);
     double time_diff = (double)(end_time.QuadPart - start_time.QuadPart) / freq.QuadPart;
     printf("模拟耗时: %.3lf 秒 \n",time_diff);
-
-    free(draw_counts);
 
     if(reverseFlag) {
         double input, sigma, z, cdfValue;
@@ -246,10 +250,6 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
         }
     }
     return 0;
-}
-
-inline unsigned int max_u32(unsigned int a, unsigned int b) {
-    return a > b ? a : b;
 }
 
 inline ArgProcessing arg_processing(int argc, const char* argv[]) {
@@ -345,7 +345,7 @@ int main(int argc, const char* argv[]) {
     printf("请输入想要抽取的当期4星卡数量: ");
     scanf("%d",&want_4star);
     if (want_4star < 0 || want_4star > 12) {
-        printf("卡片数量必须大于0且不超过12！");
+        printf("卡片数量必须大于等于0且不超过12！");
         return 1;
     }
     printf("是否为常驻池（是否有50小保底）（1: 是，0: 否）: ");

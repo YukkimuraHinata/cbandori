@@ -38,7 +38,7 @@ void set_addElement(set *_in_set ,int element) {
 
 // 删除元素
 void set_removeElement(set *_in_set ,int element) {
-    if (!set_containsElement(_in_set,element)) {
+    if (set_containsElement(_in_set,element)) {
         _in_set->data[element] = 0;
         _in_set->size--;
     }
