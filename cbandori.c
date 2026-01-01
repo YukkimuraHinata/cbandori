@@ -7,9 +7,6 @@
 #include ".\includes\myset.h"
 #include ".\includes\myheader.h"
 
-#define Simulations 1000000 //默认模拟次数
-#define minSimulations 10000 //最低模拟次数
-
 // 获取0-1之间的随机数
 double get_random() {
     double num_rand = (double)rand()/RAND_MAX;
@@ -48,17 +45,10 @@ typedef struct Thread_args{
     pthread_mutex_t* mutex; // 互斥锁指针
 } ThreadArgs;
 
-ArgProcessing arg_processing(int, const char**);
-unsigned int max_u32(unsigned int, unsigned int);
-
-inline unsigned int max_u32(unsigned int a, unsigned int b) {
-    return a > b ? a : b;
-}
-
 void* simulate_thread(void* arg) {
     ThreadArgs* args = (ThreadArgs*)arg;
     int sims_this_thread = args->end_index - args->start_index;
-    int *local_draws = malloc(sims_this_thread * sizeof(int));
+    int *local_draws = (int *)malloc(sims_this_thread * sizeof(int));
     if (!local_draws) {
         return NULL;
     }
@@ -143,15 +133,6 @@ void* simulate_thread(void* arg) {
     return NULL;
 }
 
-// 计算累加和
-long long accumulate(int begin, int end, int arr[]) {
-    long long acc_result = 0;
-    for(int i = begin; i < end; i++) {
-        acc_result = arr[i] + acc_result;
-    }
-    return acc_result;
-}
-
 // 开启多线程，输出最终结果
 int calculate_statistics(int total_5star, int want_5star, int want_4star, int normal, 
                         int simulations, unsigned int thread_count, bool reverseFlag) {
@@ -173,7 +154,7 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     printf("使用线程数: %u \n",thread_count);
 
     // 初始化存放每次抽卡次数的数组
-    int *draw_counts = malloc(simulations * sizeof(int));
+    int *draw_counts = (int *)malloc(simulations * sizeof(int));
         if(!draw_counts) {
             return 2;
     }
@@ -220,7 +201,7 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     free(draw_counts);
 
     printf("----------------模拟结果---------------- \n");
-    printf("期望抽卡次数: " ANSI_Cyan "%lf \n"ANSI_COLOR_RESET ,expected_draws);
+    printf("期望抽卡次数: " ANSI_Cyan " %lf \n" ANSI_COLOR_RESET ,expected_draws);
     printf("中位数抽卡次数: %d ，即 %.2lf w星石 \n",percentile_50 ,(double)percentile_50 /40.0);
     printf("90%%玩家在以下抽数内集齐: %d ，即 %.2lf w星石 \n",percentile_90 ,(double)percentile_90 /40.0);
     printf("非酋至多抽卡次数: %d ，即 %.2lf w星石 \n",max_number ,(double)max_number /40.0);
@@ -246,76 +227,10 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
             sigma = (percentile_90 - expected_draws)/1.28155;
             z = (input - expected_draws)/sigma;
             cdfValue = 0.5 * (1 + erf(z / 1.41421)); //sqrt(2)
-            printf("输入值 %.0lf 对应累积概率约为 "ANSI_Cyan "%lf %% \n" ANSI_COLOR_RESET, input, cdfValue * 100.0);
+            printf("输入值 %.0lf 对应累积概率约为 " ANSI_Cyan " %lf %% \n" ANSI_COLOR_RESET, input, cdfValue * 100.0);
         }
     }
     return 0;
-}
-
-inline ArgProcessing arg_processing(int argc, const char* argv[]) {
-    ArgProcessing Result = {
-        .reverse_flag = false,
-        .unknow_arg = false,
-        .need_to_exit = false,
-        .simulations = Simulations,
-        .threads = 1
-    };
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo( &sysInfo );
-    unsigned int thread_count = sysInfo.dwNumberOfProcessors;
-    if (thread_count == 0) {
-        thread_count = 4;
-    }
-    Result.threads = max_u32(1u,thread_count / 2u);
-    for (int i = 1; i < argc; i++) {
-        const char *arg = argv[i];
-        if (!strcmp(arg,"--reverse") || !strcmp(arg, "-r")) {
-            Result.reverse_flag = true;
-            printf(ANSI_Yellow_BG"当前处于反推抽数排名模式，结果仅供参考" ANSI_COLOR_RESET "\n");
-            } else if (!strcmp(arg, "--thread") || !strcmp(arg, "-t")) {
-                i++;
-                int user_threads;
-                user_threads = atoi(argv[i]);
-                if(user_threads < 1) {
-                    printf(ANSI_Red_BG"线程数必须大于0，将使用默认值" ANSI_COLOR_RESET "\n");
-                } else if (user_threads > thread_count) {
-                    printf(ANSI_Red_BG"警告：指定的线程数超过CPU线程，将使用%u线程" ANSI_COLOR_RESET "\n",thread_count);
-                    Result.threads = thread_count;
-                } else {
-                    Result.threads = (unsigned int)user_threads;
-                }
-            } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
-                printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.6 \n"
-                    "GitHub page at: https://github.com/YukkimuraHinata/cbandori \n"
-                    "C Version: %ld \n"
-                    "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);
-                Result.need_to_exit = true;
-            } else if (!strcmp(arg, "--number") || !strcmp(arg, "-n")) {
-                i++;
-                int tmpSimulations = atoi(argv[i]);
-                if(tmpSimulations > minSimulations){
-                    Result.simulations = tmpSimulations;
-                    } else {
-                        Result.simulations = minSimulations;
-                       printf(ANSI_Yellow_BG"为保证精度，将使用最低允许值:%d"ANSI_COLOR_RESET "\n",minSimulations);
-                    }
-            } else if (!strcmp(arg, "--help") || !strcmp(arg, "-h")) {
-                printf("Options: \n"
-                "  --reverse    -r    反推抽数排名\n"
-                "  --number     -n    指定模拟次数，不应少于100万次\n"
-                "  --thread     -t    指定使用的线程数，不多于CPU的线程\n"
-                "  --version    -v    显示版本信息\n"
-                "  --help       -h    显示帮助\n");
-                Result.need_to_exit = true;
-            } else {
-                printf("未知参数: " ANSI_Red "%s \n"ANSI_COLOR_RESET,arg);
-                puts("输入“cbandori -h”查看帮助");
-                Result.unknow_arg = true;
-                Result.need_to_exit = true;
-                break;
-            }
-        }
-    return Result;
 }
 
 int main(int argc, const char* argv[]) {
@@ -359,5 +274,6 @@ int main(int argc, const char* argv[]) {
 
     int return_value = calculate_statistics(total_5star, want_5star, want_4star, isNormal, 
                         res.simulations, res.threads, res.reverse_flag);
+    print_peak_memory();
     return return_value;
 }
