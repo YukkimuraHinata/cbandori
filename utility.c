@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <stdio.h>
 #include <windows.h>
 #include <psapi.h>
@@ -65,9 +66,11 @@ ArgProcessing arg_processing(int argc, const char* argv[]) {
                 }
             } else if (!strcmp(arg, "--version") || !strcmp(arg, "-v")) {
                 printf("\ncbandori,BanG Dream! Gacha in C,version 1.0.7 \n"
-                    "GitHub page at: https://github.com/YukkimuraHinata/cbandori \n"
-                    "C Version: %ld \n"
+                    "GitHub page at: https://github.com/YukkimuraHinata/cbandori \n\n");
+            #ifdef DEBUG
+                printf("Debug build \nC Version: %ld \n"
                     "Timestamp: %s \n\n",__STDC_VERSION__,__TIMESTAMP__);
+            #endif
                 Result.need_to_exit = true;
                 break;
             } else if (!strcmp(arg, "--number") || !strcmp(arg, "-n")) {

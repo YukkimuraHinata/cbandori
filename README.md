@@ -19,10 +19,12 @@ gcc -c myset.c -O3
 
 gcc -c utility.c -O3
 
-gcc cbandori.c myset.o utility.o -o cbandori -pthread -O3
+gcc cbandori.c myset.o utility.o -o cbandori -pthread -O3 -s -fno-ident
 ```
 
 如果编译器版本较老，那么引一个`stdbool.h`头文件之后就能在C11标准下编译了
+
+传入`-D DEBUG`参数编译程序，获取程序运行的详细信息
 
 非Windows用户请注意线程获取和计时相关的代码是不跨平台的，需要移植
 

@@ -1,3 +1,4 @@
+#define WIN32_LEAN_AND_MEAN
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -24,14 +25,6 @@ int get_5star_random(int total_5star) {
 int cmpfunc(const void *a, const void *b) {
     return (*(int*)a - *(int*)b);
 }
-
-typedef struct Args{
-    bool reverse_flag;      // -r 反推抽数
-    bool unknow_arg;        // 未知参数
-    bool need_to_exit;      // 表明程序需要退出（如遇到未知参数或遇到-v参数）
-    int simulations;        // -n 指定模拟次数
-    unsigned int threads;   // -t 指定线程
-} ArgProcessing;
 
 // 定义线程参数结构体
 typedef struct Thread_args{
@@ -136,12 +129,13 @@ void* simulate_thread(void* arg) {
 // 开启多线程，输出最终结果
 int calculate_statistics(int total_5star, int want_5star, int want_4star, int normal, 
                         int simulations, unsigned int thread_count, bool reverseFlag) {
+#ifdef DEBUG
     LARGE_INTEGER freq, start_time, end_time;
     // 获取计数器频率并开始计时
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start_time);
-    
-    puts("----------------输入参数----------------");
+#endif
+    printf("----------------输入参数---------------- \n");
     printf("当期5星数量: %d \n",total_5star);
     printf("想要的当期5星数量: %d \n",want_5star);
     printf("想要的当期4星数量: %d \n",want_4star);
@@ -208,11 +202,12 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     if (!normal) {
         printf("理论最多抽卡次数：%d \n" ,(want_4star + want_5star) * 300 - 100);
     }
+#ifdef DEBUG
     // 结束计时并计算耗时
     QueryPerformanceCounter(&end_time);
     double time_diff = (double)(end_time.QuadPart - start_time.QuadPart) / freq.QuadPart;
     printf("模拟耗时: %.3lf 秒 \n",time_diff);
-
+#endif
     if(reverseFlag) {
         double input, sigma, z, cdfValue;
         printf("请输入所使用的抽数：");
@@ -233,9 +228,9 @@ int calculate_statistics(int total_5star, int want_5star, int want_4star, int no
     return 0;
 }
 
-int main(int argc, const char* argv[]) {
-    ArgProcessing res = arg_processing(argc, argv);
-    if(res.need_to_exit) {
+int main(int argc, const char* argv[]) { 
+     ArgProcessing res = arg_processing(argc, argv);
+     if(res.need_to_exit) {
         return res.unknow_arg;
     }
     int isNormal = 1;
@@ -243,11 +238,11 @@ int main(int argc, const char* argv[]) {
     printf(ANSI_Blue_BG"cbandori,a gacha simulator of Garupa" ANSI_COLOR_RESET "\n");
     printf("请输入当期5星卡的总数量: ");
     scanf("%d",&total_5star);
-    // Fes池6%概率最多12张卡，在这里确保输入合法，防止set数组越界
+    // Fes池6%概率最多12张卡，如果哪天Bushiroad来了惊天13up，记得改
     if (total_5star < 0 || total_5star > 12) {
         printf("卡片数量必须大于等于0且不超过12！");
-        return 1;
-    }
+         return 1;
+     }
     if (total_5star > 0) {
         printf("请输入想要抽取的当期5星卡数量: ");
         scanf("%d",&want_5star);
@@ -274,6 +269,8 @@ int main(int argc, const char* argv[]) {
 
     int return_value = calculate_statistics(total_5star, want_5star, want_4star, isNormal, 
                         res.simulations, res.threads, res.reverse_flag);
+#ifdef DEBUG
     print_peak_memory();
+#endif
     return return_value;
 }

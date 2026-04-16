@@ -11,12 +11,12 @@ typedef struct MySet {
    由于生成的随机数是从1开始的，故data[0]无用，同时需要初始化两个int
    所以应申请_cap+3的内存，+4就当留点缓冲 */
 set *set_create(int _cap) {
-    set *myset = (set*)calloc(_cap+4, sizeof(int));
-    if (!myset) {
+    set *new_set = (set*)calloc(_cap+4, sizeof(int));
+    if (!new_set) {
         return NULL;
     }
-    myset->capacity = _cap;
-    return myset;
+    new_set->capacity = _cap;
+    return new_set;
 }
 
 // 检查元素是否存在
@@ -64,5 +64,6 @@ void set_clear(set *_in_set) {
 void set_destroy(set *_in_set) {
     if (_in_set) {
         free(_in_set);
+        _in_set = NULL;
     }
 }
